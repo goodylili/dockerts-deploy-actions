@@ -10,7 +10,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-biodata}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "${POSTGRES_HOST_PORT:-5433}:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -25,7 +25,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: biodata-backend:local
+    image: ${BACKEND_IMAGE:-biodata-backend:local}
     restart: unless-stopped
     depends_on:
       db:
@@ -55,7 +55,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: biodata-frontend:local
+    image: ${FRONTEND_IMAGE:-biodata-frontend:local}
     restart: unless-stopped
     depends_on:
       backend:

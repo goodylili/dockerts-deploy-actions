@@ -1,0 +1,163 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    outputs:
+      repo_lower: ${{ steps.repo.outputs.repo_lower }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine repository name in lowercase
+        id: repo
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "repo_lower=${REPO_LOWER}" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata for Backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ steps.repo.outputs.repo_lower }}/backend
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long,prefix=
+
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Extract metadata for Frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ steps.repo.outputs.repo_lower }}/frontend
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long,prefix=
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  deploy:
+    name: Deploy to EC2 Instance
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose.yml to EC2
+        uses: appleboy/scp-action@v1.0.1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME || secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY || secrets.EC2_PRIVATE_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          source: "docker-compose.yml"
+          target: "${{ secrets.EC2_TARGET_DIR || '~/app' }}"
+
+      - name: Execute Remote Deployment Commands
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME || secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY || secrets.EC2_PRIVATE_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          envs: GITHUB_ACTOR,GITHUB_TOKEN
+          script: |
+            set -e
+            TARGET_DIR="${{ secrets.EC2_TARGET_DIR || '~/app' }}"
+            REPO_LOWER="${{ needs.build-and-push.outputs.repo_lower }}"
+
+            mkdir -p "$TARGET_DIR"
+            cd "$TARGET_DIR"
+
+            # Determine docker binary execution permissions
+            if docker info >/dev/null 2>&1; then
+              DOCKER_CMD="docker"
+            else
+              DOCKER_CMD="sudo docker"
+            fi
+
+            # Determine docker compose syntax (V2 vs V1)
+            if $DOCKER_CMD compose version >/dev/null 2>&1; then
+              COMPOSE_CMD="$DOCKER_CMD compose"
+            else
+              COMPOSE_CMD="docker-compose"
+            fi
+
+            # Authenticate to GHCR on EC2 host
+            echo "$GITHUB_TOKEN" | $DOCKER_CMD login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+            # Export backend and frontend image tags for docker compose
+            export BACKEND_IMAGE="ghcr.io/${REPO_LOWER}/backend:latest"
+            export FRONTEND_IMAGE="ghcr.io/${REPO_LOWER}/frontend:latest"
+
+            # Ensure .env file exists
+            if [ ! -f .env ]; then
+              touch .env
+            fi
+
+            # Pull updated images and recreate updated containers
+            $COMPOSE_CMD pull
+            $COMPOSE_CMD up -d --remove-orphans
+
+            # Verify backend service health
+            echo "Verifying backend health..."
+            for i in $(seq 1 30); do
+              if curl -fsS http://localhost:8000/health | grep -q '"status":"ok"'; then
+                echo "Backend is healthy!"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "Backend healthcheck timed out." >&2
+                $COMPOSE_CMD logs --tail=100
+                exit 1
+              fi
+              sleep 2
+            done
+
+            # Clean up old unused images
+            $DOCKER_CMD image prune -f

@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Dark mode is driven by a `dark` class on <html> so the header toggle can control it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",

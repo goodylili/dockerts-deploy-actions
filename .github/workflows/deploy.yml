@@ -1,5 +1,6 @@
 name: Deploy to EC2
 
+# Every push to main ships; workflow_dispatch re-runs the same deploy by hand.
 on:
   push:
     branches: [main]
@@ -11,6 +12,7 @@ concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
+# packages: write is what lets GITHUB_TOKEN push images to GHCR.
 permissions:
   contents: read
   packages: write
@@ -22,6 +24,7 @@ jobs:
   build:
     name: Build & push images
     runs-on: ubuntu-latest
+    # Image refs are computed once here and consumed by the deploy job below.
     outputs:
       backend_image: ${{ steps.images.outputs.backend }}
       frontend_image: ${{ steps.images.outputs.frontend }}
@@ -38,6 +41,7 @@ jobs:
           echo "frontend=${REGISTRY}/${repo}/frontend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
           echo "repo=${repo}" >> "$GITHUB_OUTPUT"
 
+      # Buildx is required for the type=gha layer cache used by the build steps.
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -78,8 +82,10 @@ jobs:
     name: Deploy to EC2
     needs: build
     runs-on: ubuntu-latest
+    # Production environment: scopes the deploy secrets and any required approval.
     environment: production
     steps:
+      # Only needed for the deploy/ files the next step uploads.
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -92,6 +98,7 @@ jobs:
           port: ${{ secrets.EC2_PORT }}
           source: "deploy/docker-compose.prod.yml,deploy/deploy.sh"
           target: ${{ secrets.EC2_TARGET_DIR }}
+          # Strips the deploy/ prefix so both files land directly in the target dir.
           strip_components: 1
           overwrite: true
 
@@ -122,6 +129,7 @@ jobs:
           CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
           LOG_LEVEL: INFO
 
+      # Records exactly which image tags went out, visible on the run page.
       - name: Summary
         run: |
           {

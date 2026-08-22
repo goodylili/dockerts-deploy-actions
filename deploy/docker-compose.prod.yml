@@ -18,6 +18,7 @@ services:
     # never from the public internet. Compose talks to it over the project network.
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
+    # The only state a deploy must never destroy.
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -30,8 +31,10 @@ services:
 
   backend:
     image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
+    # Tags are immutable, but force a pull so the host can never serve a stale layer.
     pull_policy: always
     restart: unless-stopped
+    # Wait for Postgres to accept connections before running migrations.
     depends_on:
       db:
         condition: service_healthy
@@ -60,6 +63,7 @@ services:
     image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE must be set}
     pull_policy: always
     restart: unless-stopped
+    # Wait for a healthy backend so the first request after a deploy isn't a 502.
     depends_on:
       backend:
         condition: service_healthy
@@ -79,5 +83,6 @@ services:
       retries: 24
       start_period: 15s
 
+# Declared here but never recreated by a deploy; survives `down` without -v.
 volumes:
   db_data:

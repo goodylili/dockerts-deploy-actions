@@ -7,9 +7,11 @@
 # same .env, pulls the same immutable image tags and converges the same stack.
 set -euo pipefail
 
+# Default matches the scp target in the workflow; overridden by the SSH env.
 APP_DIR="${APP_DIR:-/home/ubuntu/app}"
 COMPOSE_FILE="${APP_DIR}/docker-compose.prod.yml"
 
+# Fail before touching the running stack if the workflow passed no image refs.
 : "${BACKEND_IMAGE:?BACKEND_IMAGE is required}"
 : "${FRONTEND_IMAGE:?FRONTEND_IMAGE is required}"
 
@@ -26,6 +28,7 @@ fi
 COMPOSE="$DOCKER compose -f $COMPOSE_FILE"
 
 # ------------------------------------------------------------------- registry --
+# Skipped when no token is set, e.g. a hand-run deploy against public images.
 if [ -n "${REGISTRY_TOKEN:-}" ]; then
   echo "==> Logging in to ${REGISTRY:-ghcr.io}"
   echo "$REGISTRY_TOKEN" | $DOCKER login "${REGISTRY:-ghcr.io}" \
@@ -69,10 +72,13 @@ echo "    frontend ${FRONTEND_IMAGE}"
 $COMPOSE pull
 
 echo "==> Starting stack"
-$COMPOSE up -d --remove-orphans --wait --wait-timeout 180
+# --wait blocks until every healthcheck passes, so a bad image fails right here.
+COMPOSE$ up -d --remove-orphans --wait --wait-timeout 180
 
 # ------------------------------------------------------------------- verify --
 echo "==> Verifying endpoints"
+# Second opinion from outside the containers: published ports can be unreachable
+# even when in-container healthchecks are green. Up to 60s of retries.
 ok=0
 for i in $(seq 1 30); do
   if curl -fsS "http://127.0.0.1:${BACKEND_HOST_PORT}/health" | grep -q '"status":"ok"' \
@@ -94,5 +100,6 @@ echo "==> Healthy"
 $COMPOSE ps
 
 # ------------------------------------------------------------------ cleanup --
+# Drops the layers of the image this deploy just replaced.
 $DOCKER image prune -f >/dev/null 2>&1 || true
 echo "==> Deploy complete"

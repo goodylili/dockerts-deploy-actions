@@ -8,9 +8,9 @@ export const metadata: Metadata = {
 };
 
 // Runs before paint so the stored theme applies without a flash of the wrong palette.
-// Themes are "light" | "dark" | "red"; red is a light-background theme, so it keeps
-// the light color-scheme for native controls.
-const themeScript = `(function(){try{var t=localStorage.getItem("theme");if(!t){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}var r=document.documentElement;r.classList.toggle("dark",t==="dark");r.classList.toggle("red",t==="red");r.style.colorScheme=t==="dark"?"dark":"light";}catch(e){}})();`;
+// Themes are "light" | "dark" | "red" | "purple" | "blue". Every theme but dark has a
+// light background, so they all keep the light color-scheme for native controls.
+const themeScript = `(function(){try{var t=localStorage.getItem("theme");if(!t){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}var r=document.documentElement;["dark","red","purple","blue"].forEach(function(c){r.classList.toggle(c,t===c);});r.style.colorScheme=t==="dark"?"dark":"light";}catch(e){}})();`;
 
 export default function RootLayout({
   children,

@@ -1,0 +1,83 @@
+# Production compose file — lives on the EC2 host, deployed by .github/workflows/deploy.yml.
+#
+# Unlike the root docker-compose.yml this file never builds: every application
+# image is pulled from GHCR by immutable tag. The project name matches the dev
+# compose file so the existing `biodata_db_data` volume is reused.
+name: biodata
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-biodata}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-biodata}
+      POSTGRES_DB: ${POSTGRES_DB:-biodata}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    # Bound to loopback: the database is only reachable from the host itself,
+    # never from the public internet. Compose talks to it over the project network.
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-biodata} -d ${POSTGRES_DB:-biodata}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  backend:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://biodata:biodata@db:5432/biodata}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    # Migrate, then serve. `alembic upgrade head` is a no-op when the schema is
+    # already current, so restarts and redeploys are safe to repeat.
+    command: >
+      sh -c "uv run alembic upgrade head && uv run python -m biodata"
+    ports:
+      - "${BACKEND_HOST_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sys,urllib.request;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE must be set}
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      BACKEND_URL: ${BACKEND_URL:-http://backend:8000}
+    ports:
+      - "${FRONTEND_HOST_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
+
+volumes:
+  db_data:

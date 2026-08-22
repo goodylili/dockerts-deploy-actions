@@ -3,6 +3,9 @@
 /* Dark mode is driven by a `dark` class on <html> so the header toggle can control it. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Red mode is driven by a `red` class on <html>, the same way. */
+@custom-variant red (&:where(.red, .red *));
+
 @theme inline {
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
@@ -12,6 +15,48 @@
 html {
   font-family: var(--font-sans);
   color-scheme: light dark;
+}
+
+/* Ambient glow behind the page; recoloured per theme below. */
+:root {
+  --page-glow: rgba(99, 102, 241, 0.12);
+}
+
+body {
+  background-image: radial-gradient(
+    60rem 40rem at 50% -10rem,
+    var(--page-glow),
+    transparent
+  );
+}
+
+/* --------------------------------------------------------------- red mode --
+   The UI is built on the slate ramp (neutrals) with indigo as the accent.
+   Tailwind v4 compiles every colour utility to `var(--color-<name>-<shade>)`,
+   so remapping those custom properties here recolours the entire site without
+   touching a single component or adding a `red:` variant to any class list.
+
+   Semantic colours (rose for errors, amber for warnings, emerald for success)
+   are deliberately left alone so validation states stay distinguishable. */
+.red {
+  --page-glow: rgba(224, 49, 49, 0.2);
+
+  --color-slate-50: #fff5f5;
+  --color-slate-100: #ffe3e3;
+  --color-slate-200: #ffc9c9;
+  --color-slate-300: #ffa8a8;
+  --color-slate-400: #f06565;
+  --color-slate-500: #d92626;
+  --color-slate-600: #c01c1c;
+  --color-slate-700: #9c1515;
+  --color-slate-800: #7a1010;
+  --color-slate-900: #5c0b0b;
+  --color-slate-950: #3d0707;
+
+  --color-indigo-400: #ff8787;
+  --color-indigo-500: #f03e3e;
+  --color-indigo-600: #e03131;
+  --color-indigo-700: #c92a2a;
 }
 
 /* Native date pickers and dropdown arrows follow the page theme. */
@@ -24,4 +69,9 @@ select {
   background-position: right 0.5rem center;
   background-repeat: no-repeat;
   background-size: 1.25rem 1.25rem;
+}
+
+/* Match the dropdown arrow to the red palette. */
+.red select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23d92626' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
 }

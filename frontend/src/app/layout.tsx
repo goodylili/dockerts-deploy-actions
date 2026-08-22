@@ -8,7 +8,9 @@ export const metadata: Metadata = {
 };
 
 // Runs before paint so the stored theme applies without a flash of the wrong palette.
-const themeScript = `(function(){try{var t=localStorage.getItem("theme");if(!t){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.classList.toggle("dark",t==="dark");document.documentElement.style.colorScheme=t;}catch(e){}})();`;
+// Themes are "light" | "dark" | "red"; red is a light-background theme, so it keeps
+// the light color-scheme for native controls.
+const themeScript = `(function(){try{var t=localStorage.getItem("theme");if(!t){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}var r=document.documentElement;r.classList.toggle("dark",t==="dark");r.classList.toggle("red",t==="red");r.style.colorScheme=t==="dark"?"dark":"light";}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -20,7 +22,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-full bg-slate-50 bg-[radial-gradient(60rem_40rem_at_50%_-10rem,rgba(99,102,241,0.12),transparent)] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <body className="min-h-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
         {children}
       </body>
     </html>

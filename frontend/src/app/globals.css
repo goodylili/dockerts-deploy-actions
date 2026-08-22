@@ -6,6 +6,10 @@
 /* Red mode is driven by a `red` class on <html>, the same way. */
 @custom-variant red (&:where(.red, .red *));
 
+/* Purple and blue modes follow the same class-on-<html> convention. */
+@custom-variant purple (&:where(.purple, .purple *));
+@custom-variant blue (&:where(.blue, .blue *));
+
 @theme inline {
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
@@ -59,6 +63,53 @@ body {
   --color-indigo-700: #c92a2a;
 }
 
+/* ------------------------------------------------------------ purple mode --
+   Same remapping technique as red mode above: override the slate ramp and the
+   indigo accent so every existing utility picks up the new palette. */
+.purple {
+  --page-glow: rgba(124, 58, 237, 0.2);
+
+  --color-slate-50: #f8f5ff;
+  --color-slate-100: #f0e6ff;
+  --color-slate-200: #e0ccff;
+  --color-slate-300: #c9a8fb;
+  --color-slate-400: #9c62f0;
+  --color-slate-500: #7c3aed;
+  --color-slate-600: #6d28d9;
+  --color-slate-700: #5b21b6;
+  --color-slate-800: #46168f;
+  --color-slate-900: #340f6b;
+  --color-slate-950: #200847;
+
+  --color-indigo-400: #b388ff;
+  --color-indigo-500: #8b5cf6;
+  --color-indigo-600: #7c3aed;
+  --color-indigo-700: #6d28d9;
+}
+
+/* -------------------------------------------------------------- blue mode --
+   As above, on the blue ramp. */
+.blue {
+  --page-glow: rgba(37, 99, 235, 0.2);
+
+  --color-slate-50: #f0f8ff;
+  --color-slate-100: #dbeefe;
+  --color-slate-200: #bfdefe;
+  --color-slate-300: #93c5fd;
+  --color-slate-400: #4f95ef;
+  --color-slate-500: #2563eb;
+  --color-slate-600: #1d4ed8;
+  --color-slate-700: #1a3fae;
+  --color-slate-800: #14318a;
+  --color-slate-900: #0f2569;
+  --color-slate-950: #081845;
+
+  --color-indigo-400: #60a5fa;
+  --color-indigo-500: #3b82f6;
+  --color-indigo-600: #2563eb;
+  --color-indigo-700: #1d4ed8;
+}
+
 /* Native date pickers and dropdown arrows follow the page theme. */
 input[type="date"] {
   min-height: 2.5rem;
@@ -74,4 +125,14 @@ select {
 /* Match the dropdown arrow to the red palette. */
 .red select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23d92626' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+}
+
+/* Match the dropdown arrow to the purple palette. */
+.purple select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%237c3aed' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+}
+
+/* Match the dropdown arrow to the blue palette. */
+.blue select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%232563eb' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
 }

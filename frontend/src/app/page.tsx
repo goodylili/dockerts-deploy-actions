@@ -22,7 +22,18 @@ export default function Home() {
       </header>
 
       <BiodataApp />
+ <div className="mt-8 rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-center dark:border-indigo-800 dark:bg-indigo-950">
+        <h2 className="font-semibold text-indigo-700 dark:text-indigo-300">
+          CI/CD Test 🚀
+        </h2>
+        <p className="mt-1 text-sm text-indigo-600 dark:text-indigo-400">
 
+          My first automated deployment is working yes chris did it!
+
+          My first automated deployment is working needs to be done chris
+
+        </p>
+      </div>
       <footer className="mt-10 text-xs text-slate-400 dark:text-slate-500">
         Data is stored on the records service; this page never talks to it
         directly.
